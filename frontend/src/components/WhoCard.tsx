@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { WhoAnalysis } from "@/lib/api";
+import { safeStr } from "@/lib/utils";
 
 interface WhoCardProps {
   data: WhoAnalysis;
@@ -26,7 +27,7 @@ export default function WhoCard({ data }: WhoCardProps) {
               className="bg-gray-50 rounded-2xl p-4"
             >
               <p className="text-xs text-ink-faint uppercase tracking-widest mb-1">{key}</p>
-              <p className="text-sm text-ink font-medium">{value}</p>
+              <p className="text-sm text-ink font-medium">{safeStr(value)}</p>
             </motion.div>
           ))}
         </div>
@@ -77,14 +78,14 @@ export default function WhoCard({ data }: WhoCardProps) {
               className="border-l-2 border-ink pl-5"
             >
               <p className="text-sm font-semibold text-ink leading-snug mb-2">
-                &ldquo;{ins.insight}&rdquo;
+                &ldquo;{safeStr(ins.insight)}&rdquo;
               </p>
               <div className="space-y-1">
                 <p className="text-xs text-ink-muted">
-                  <span className="text-ink-faint">Tension —</span> {ins.tension}
+                  <span className="text-ink-faint">Tension —</span> {safeStr(ins.tension)}
                 </p>
                 <p className="text-xs text-ink-muted">
-                  <span className="text-ink-faint">Opportunity —</span> {ins.opportunity}
+                  <span className="text-ink-faint">Opportunity —</span> {safeStr(ins.opportunity)}
                 </p>
               </div>
             </motion.div>
@@ -106,7 +107,7 @@ export default function WhoCard({ data }: WhoCardProps) {
               transition={{ delay: i * 0.05 }}
               className="text-xs text-ink bg-gray-100 px-3 py-1.5 rounded-full font-medium"
             >
-              {need}
+              {safeStr(need)}
             </motion.span>
           ))}
         </div>

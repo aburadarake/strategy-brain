@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { WhatAnalysis } from "@/lib/api";
+import { safeStr } from "@/lib/utils";
 
 interface WhatCardProps {
   data: WhatAnalysis;
@@ -20,7 +21,7 @@ export default function WhatCard({ data }: WhatCardProps) {
           className="font-bold text-ink leading-tight"
           style={{ fontSize: "clamp(1.2rem, 2.5vw, 1.8rem)", letterSpacing: "-0.02em" }}
         >
-          {data.value_proposition.core_proposition}
+          {safeStr(data.value_proposition.core_proposition)}
         </p>
       </section>
 
@@ -43,7 +44,7 @@ export default function WhatCard({ data }: WhatCardProps) {
               className="bg-gray-50 rounded-2xl px-5 py-4"
             >
               <p className="text-xs text-ink-faint uppercase tracking-widest mb-1">{label}</p>
-              <p className="text-sm text-ink leading-snug">{value}</p>
+              <p className="text-sm text-ink leading-snug">{safeStr(value)}</p>
             </motion.div>
           ))}
         </div>
@@ -92,7 +93,7 @@ export default function WhatCard({ data }: WhatCardProps) {
         </div>
         <div className="bg-gray-50 rounded-2xl px-5 py-4">
           <p className="text-xs text-ink-faint uppercase tracking-widest mb-1">認識ギャップ</p>
-          <p className="text-sm text-ink">{data.brand_diagnosis.perception_gap}</p>
+          <p className="text-sm text-ink">{safeStr(data.brand_diagnosis.perception_gap)}</p>
         </div>
       </section>
 
@@ -115,7 +116,7 @@ export default function WhatCard({ data }: WhatCardProps) {
               className="bg-gray-50 rounded-2xl p-4 text-center"
             >
               <p className="text-xs text-ink-faint uppercase tracking-widest mb-2">{label}</p>
-              <p className="text-xs text-ink font-medium leading-snug">{value}</p>
+              <p className="text-xs text-ink font-medium leading-snug">{safeStr(value)}</p>
             </motion.div>
           ))}
         </div>

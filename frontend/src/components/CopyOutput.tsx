@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CopyOutput as CopyOutputType } from "@/lib/api";
+import { safeStr } from "@/lib/utils";
 
 interface CopyOutputProps {
   data: CopyOutputType;
@@ -37,7 +38,7 @@ export default function CopyOutput({ data }: CopyOutputProps) {
           {Object.entries(data.strategic_brief).map(([key, value]) => (
             <div key={key} className="bg-white border border-gray-100 rounded-2xl p-5">
               <p className="text-xs text-ink-faint uppercase tracking-widest mb-2">{key}</p>
-              <p className="text-sm text-ink leading-snug">{value}</p>
+              <p className="text-sm text-ink leading-snug">{safeStr(value)}</p>
             </div>
           ))}
         </div>
@@ -111,18 +112,18 @@ export default function CopyOutput({ data }: CopyOutputProps) {
                     className="font-bold text-ink leading-tight mb-3"
                     style={{ fontSize: "clamp(1.4rem, 3vw, 2rem)", letterSpacing: "-0.02em" }}
                   >
-                    {v.headline}
+                    {safeStr(v.headline)}
                   </p>
 
                   {/* Subhead */}
                   {v.subhead && (
-                    <p className="text-ink-muted text-lg mb-4">{v.subhead}</p>
+                    <p className="text-ink-muted text-lg mb-4">{safeStr(v.subhead)}</p>
                   )}
 
                   {/* Body */}
                   {v.body && (
                     <p className="text-ink-muted text-sm leading-relaxed mb-6 whitespace-pre-line">
-                      {v.body}
+                      {safeStr(v.body)}
                     </p>
                   )}
 
@@ -130,14 +131,14 @@ export default function CopyOutput({ data }: CopyOutputProps) {
                   {v.why_it_works && (
                     <div className="mt-4 pt-4 border-t border-black/10">
                       <p className="text-xs text-ink-faint uppercase tracking-widest mb-1">なぜ刺さるか</p>
-                      <p className="text-sm text-ink-muted">{v.why_it_works}</p>
+                      <p className="text-sm text-ink-muted">{safeStr(v.why_it_works)}</p>
                     </div>
                   )}
 
                   {/* Technique */}
                   <div className="mt-4 flex gap-2">
                     <span className="text-xs bg-white/60 text-ink-muted px-3 py-1 rounded-full border border-black/10">
-                      {v.technique}
+                      {safeStr(v.technique)}
                     </span>
                   </div>
                 </div>
@@ -192,7 +193,7 @@ export default function CopyOutput({ data }: CopyOutputProps) {
                   </span>
                 </div>
                 <p className="text-sm font-semibold text-ink line-clamp-2 leading-snug">
-                  {v.headline}
+                  {safeStr(v.headline)}
                 </p>
               </motion.div>
             );

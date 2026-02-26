@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { BigIdea } from "@/lib/api";
+import { safeStr } from "@/lib/utils";
 
 interface BigIdeaCardProps {
   data: BigIdea;
@@ -57,7 +58,7 @@ export default function BigIdeaCard({ data }: BigIdeaCardProps) {
               lineHeight: 1.15,
             }}
           >
-            {data.idea}
+            {safeStr(data.idea)}
           </motion.p>
 
           {/* Rationale */}
@@ -67,7 +68,7 @@ export default function BigIdeaCard({ data }: BigIdeaCardProps) {
             transition={{ duration: 0.8, delay: 0.5 }}
             className="text-white/50 text-sm leading-relaxed mt-8 max-w-2xl"
           >
-            {data.rationale}
+            {safeStr(data.rationale)}
           </motion.p>
         </div>
       </motion.div>
@@ -105,7 +106,7 @@ export default function BigIdeaCard({ data }: BigIdeaCardProps) {
                 </p>
                 <p className="text-xs font-semibold text-ink mt-1">{meta.ja}</p>
                 <p className="text-xs text-ink-faint mt-0.5">{meta.desc}</p>
-                <p className="text-xs text-ink-muted mt-2 leading-snug">{value.reason}</p>
+                <p className="text-xs text-ink-muted mt-2 leading-snug">{safeStr(value.reason)}</p>
               </motion.div>
             );
           })}
@@ -129,7 +130,7 @@ export default function BigIdeaCard({ data }: BigIdeaCardProps) {
               <span className="text-ink-faint text-xs font-semibold tabular-nums shrink-0 pt-0.5">
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <p className="text-ink text-sm leading-relaxed">{alt}</p>
+              <p className="text-ink text-sm leading-relaxed">{safeStr(alt)}</p>
             </motion.div>
           ))}
         </div>
