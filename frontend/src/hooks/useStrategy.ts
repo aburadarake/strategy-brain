@@ -15,7 +15,7 @@ import {
   StreamUpdate,
 } from "@/lib/api";
 
-type Step = "idle" | "barriers" | "who_what" | "bigidea" | "copy" | "complete" | "error";
+type Step = "idle" | "uploading" | "barriers" | "who_what" | "bigidea" | "copy" | "complete" | "error";
 
 interface StrategyState {
   // State
@@ -60,7 +60,103 @@ const initialState = {
   statusMessage: "",
 };
 
-export const useStrategyStore = create<StrategyState>((set, get) => ({
+// ストリーミング更新を処理する共通ハンドラを生成する
+function makeStreamHandler(
+  set: (partial: Partial<StrategyState>) => void,
+  onComplete: () => void,
+  onError: (msg: string) => void
+) {
+  return (update: StreamUpdate) => {
+    if (update.error) {
+      set({
+        isLoading: false,
+        step: "error",
+        error: update.error,
+        statusMessage: "エラーが発生しました",
+      });
+      onError(update.error);
+      return;
+    }
+
+    switch (update.step) {
+      case "hosoda_3d":
+        if (update.status === "running") {
+          set({ statusMessage: "細田式3D（別視点）分析中..." });
+        }
+        break;
+
+      case "barriers":
+        if (update.status === "running") {
+          set({ step: "barriers", statusMessage: "障壁分析中..." });
+        } else if (update.status === "complete" && update.data) {
+          set({ barriers: update.data as BarrierResult });
+        }
+        break;
+
+      case "who_what":
+        if (update.status === "running") {
+          set({ step: "who_what", statusMessage: "WHO/WHAT分析中..." });
+        }
+        break;
+
+      case "who":
+        if (update.status === "complete" && update.data) {
+          set({ who: update.data as WhoAnalysis });
+        }
+        break;
+
+      case "what":
+        if (update.status === "complete" && update.data) {
+          set({ what: update.data as WhatAnalysis });
+        }
+        break;
+
+      case "bigidea":
+        if (update.status === "running") {
+          set({ step: "bigidea", statusMessage: "BIG IDEA生成中..." });
+        } else if (update.status === "complete" && update.data) {
+          set({ bigIdea: update.data as BigIdea });
+        }
+        break;
+
+      case "copy":
+        if (update.status === "running") {
+          set({ step: "copy", statusMessage: "コピー・広告企画生成中..." });
+        } else if (update.status === "complete" && update.data) {
+          set({ copy: update.data as CopyOutput });
+        }
+        break;
+
+      case "ad_planning":
+        if (update.status === "complete" && update.data) {
+          set({ adPlanning: update.data as AdPlanResult });
+        }
+        break;
+
+      case "complete":
+        if (update.data) {
+          const result = update.data as StrategyResult;
+          set({
+            isLoading: false,
+            step: "complete",
+            result,
+            hosoda3d: result.hosoda_3d ?? null,
+            barriers: result.barriers,
+            who: result.who,
+            what: result.what,
+            bigIdea: result.big_idea,
+            copy: result.copywriting,
+            adPlanning: result.ad_planning ?? null,
+            statusMessage: "分析完了",
+          });
+          onComplete();
+        }
+        break;
+    }
+  };
+}
+
+export const useStrategyStore = create<StrategyState>((set) => ({
   ...initialState,
 
   setBrief: (brief) => set({ brief }),
@@ -101,6 +197,7 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
     }
   },
 
+  // ファイルあり分析: ① ファイル要約取得 → ② SSEストリーミング分析
   analyzeWithFiles: async (brief, files) => {
     console.log("[Strategy] Starting analysis with files:", files.length);
     set({
@@ -108,39 +205,47 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
       brief,
       files,
       isLoading: true,
-      step: "barriers",
-      statusMessage: files.length > 0
-        ? `ファイル分析中... (${files.length}件)`
-        : "分析を開始しています...",
+      step: "uploading",
+      statusMessage:
+        files.length > 0
+          ? `ファイルをアップロード中... (${files.length}件)`
+          : "分析を開始しています...",
     });
 
     try {
-      console.log("[Strategy] Calling API...");
-      const result = await api.analyzeWithFiles(brief, files);
-      console.log("[Strategy] API response received:", result);
-      console.log("[Strategy] copywriting field:", result.copywriting);
-      set({
-        isLoading: false,
-        step: "complete",
-        result,
-        hosoda3d: result.hosoda_3d ?? null,
-        barriers: result.barriers,
-        who: result.who,
-        what: result.what,
-        bigIdea: result.big_idea,
-        copy: result.copywriting,
-        adPlanning: result.ad_planning ?? null,
-        statusMessage: "分析完了",
+      // Step 1: ファイルをアップロードして要約を取得
+      let additionalInfo = brief.additional_info || "";
+      if (files.length > 0) {
+        set({ statusMessage: "ファイルを解析中..." });
+        const fileResult = await api.analyzeFiles(files);
+        if (fileResult.summary) {
+          additionalInfo += `\n\n## 添付ファイル分析結果\n${fileResult.summary}`;
+        }
+      }
+
+      // Step 2: SSEストリーミングで分析実行（タイムアウト回避）
+      const briefWithFiles: BriefInput = { ...brief, additional_info: additionalInfo };
+      set({ step: "barriers", statusMessage: "戦略分析を開始しています..." });
+
+      await new Promise<void>((resolve, reject) => {
+        const handler = makeStreamHandler(
+          set as (partial: Partial<StrategyState>) => void,
+          resolve,
+          reject
+        );
+        api.analyzeStream(briefWithFiles, handler);
       });
-      console.log("[Strategy] State updated to complete");
     } catch (error) {
       console.error("[Strategy] Error:", error);
-      set({
-        isLoading: false,
-        step: "error",
-        error: error instanceof Error ? error.message : "Unknown error",
-        statusMessage: "エラーが発生しました",
-      });
+      // makeStreamHandler 内でエラー状態は既にセット済み
+      if (!(error instanceof Error && error.message.includes("エラー"))) {
+        set({
+          isLoading: false,
+          step: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+          statusMessage: "エラーが発生しました",
+        });
+      }
     }
   },
 
@@ -153,74 +258,12 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
       statusMessage: "分析を開始しています...",
     });
 
-    const handleUpdate = (update: StreamUpdate) => {
-      if (update.error) {
-        set({
-          isLoading: false,
-          step: "error",
-          error: update.error,
-          statusMessage: "エラーが発生しました",
-        });
-        return;
-      }
-
-      switch (update.step) {
-        case "barriers":
-          if (update.status === "running") {
-            set({ step: "barriers", statusMessage: "障壁分析中..." });
-          } else if (update.status === "complete" && update.data) {
-            set({ barriers: update.data as BarrierResult });
-          }
-          break;
-
-        case "who_what":
-          if (update.status === "running") {
-            set({ step: "who_what", statusMessage: "WHO/WHAT分析中..." });
-          }
-          break;
-
-        case "who":
-          if (update.status === "complete" && update.data) {
-            set({ who: update.data as WhoAnalysis });
-          }
-          break;
-
-        case "what":
-          if (update.status === "complete" && update.data) {
-            set({ what: update.data as WhatAnalysis });
-          }
-          break;
-
-        case "bigidea":
-          if (update.status === "running") {
-            set({ step: "bigidea", statusMessage: "BIG IDEA生成中..." });
-          } else if (update.status === "complete" && update.data) {
-            set({ bigIdea: update.data as BigIdea });
-          }
-          break;
-
-        case "copy":
-          if (update.status === "running") {
-            set({ step: "copy", statusMessage: "コピー生成中..." });
-          } else if (update.status === "complete" && update.data) {
-            set({ copy: update.data as CopyOutput });
-          }
-          break;
-
-        case "complete":
-          if (update.data) {
-            set({
-              isLoading: false,
-              step: "complete",
-              result: update.data as StrategyResult,
-              statusMessage: "分析完了",
-            });
-          }
-          break;
-      }
-    };
-
-    api.analyzeStream(brief, handleUpdate);
+    const handler = makeStreamHandler(
+      set as (partial: Partial<StrategyState>) => void,
+      () => {},
+      () => {}
+    );
+    api.analyzeStream(brief, handler);
   },
 
   reset: () => set(initialState),
@@ -232,11 +275,9 @@ export function useStrategy() {
 
   const startAnalysis = (brief: BriefInput, files?: File[]) => {
     if (files && files.length > 0) {
-      // Use file upload endpoint
       store.analyzeWithFiles(brief, files);
     } else {
-      // Use regular endpoint
-      store.analyze(brief);
+      store.analyzeWithStreaming(brief);
     }
   };
 

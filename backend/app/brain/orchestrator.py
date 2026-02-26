@@ -146,41 +146,89 @@ class StrategyOrchestrator:
     async def run_full_analysis_streaming(
         self, brief: BriefInput
     ) -> AsyncGenerator[dict, None]:
-        """ストリーミング更新付きで完全な戦略立案を実行する。"""
+        """ストリーミング更新付きで完全な戦略立案を実行する。
+
+        各 asyncio.gather() の待機中に keepalive を送り続け、
+        Railway などのプロキシによるタイムアウトを防ぐ。
+        """
+        import asyncio as _asyncio
+
+        async def with_keepalive(coro, running_step: str, message: str):
+            """コルーチンを実行しながら、15秒ごとに keepalive を yield するラッパー。"""
+            task = _asyncio.ensure_future(coro)
+            while not task.done():
+                await _asyncio.sleep(15)
+                if not task.done():
+                    yield {"step": "keepalive", "status": "running", "message": message}
+            return await task
+
         yield {"step": "start", "message": "分析を開始します..."}
 
         # ── 細田式3D（別視点）と障壁分析を並列起動 ──────────────
         yield {"step": "hosoda_3d", "status": "running", "message": "細田式3Dモデル（別視点）分析中..."}
         yield {"step": "barriers", "status": "running", "message": "障壁分析中..."}
 
-        hosoda_3d, barriers = await asyncio.gather(
-            self.analyze_hosoda_3d(brief),
-            self.analyze_barriers(brief),
+        # keepalive を送りながら並列実行
+        gather_task = _asyncio.ensure_future(
+            _asyncio.gather(
+                self.analyze_hosoda_3d(brief),
+                self.analyze_barriers(brief),
+            )
         )
+        while not gather_task.done():
+            await _asyncio.sleep(15)
+            if not gather_task.done():
+                yield {"step": "keepalive", "status": "running", "message": "障壁・3D分析中..."}
+        hosoda_3d, barriers = gather_task.result()
 
         yield {"step": "hosoda_3d", "status": "complete", "data": hosoda_3d.model_dump()}
         yield {"step": "barriers", "status": "complete", "data": barriers.model_dump()}
 
         # ── WHO / WHAT 並列 ───────────────────────────────────────
         yield {"step": "who_what", "status": "running", "message": "WHO/WHAT分析中..."}
-        who, what = await asyncio.gather(
-            self.analyze_who(brief, barriers),
-            self.analyze_what(brief, barriers),
+
+        who_what_task = _asyncio.ensure_future(
+            _asyncio.gather(
+                self.analyze_who(brief, barriers),
+                self.analyze_what(brief, barriers),
+            )
         )
+        while not who_what_task.done():
+            await _asyncio.sleep(15)
+            if not who_what_task.done():
+                yield {"step": "keepalive", "status": "running", "message": "WHO/WHAT分析中..."}
+        who, what = who_what_task.result()
+
         yield {"step": "who", "status": "complete", "data": who.model_dump()}
         yield {"step": "what", "status": "complete", "data": what.model_dump()}
 
         # ── BIG IDEA ──────────────────────────────────────────────
         yield {"step": "bigidea", "status": "running", "message": "BIG IDEA生成中..."}
-        big_idea = await self.generate_big_idea(who, what)
+
+        bigidea_task = _asyncio.ensure_future(self.generate_big_idea(who, what))
+        while not bigidea_task.done():
+            await _asyncio.sleep(15)
+            if not bigidea_task.done():
+                yield {"step": "keepalive", "status": "running", "message": "BIG IDEA生成中..."}
+        big_idea = bigidea_task.result()
+
         yield {"step": "bigidea", "status": "complete", "data": big_idea.model_dump()}
 
         # ── コピー / 広告企画 並列 ────────────────────────────────
         yield {"step": "copy", "status": "running", "message": "コピー・広告企画生成中..."}
-        copy_result, ad_planning = await asyncio.gather(
-            self.generate_copy(big_idea, who, what),
-            self.generate_ad_planning(brief, who, what, big_idea),
+
+        copy_task = _asyncio.ensure_future(
+            _asyncio.gather(
+                self.generate_copy(big_idea, who, what),
+                self.generate_ad_planning(brief, who, what, big_idea),
+            )
         )
+        while not copy_task.done():
+            await _asyncio.sleep(15)
+            if not copy_task.done():
+                yield {"step": "keepalive", "status": "running", "message": "コピー・広告企画生成中..."}
+        copy_result, ad_planning = copy_task.result()
+
         yield {"step": "copy", "status": "complete", "data": copy_result.model_dump()}
         yield {"step": "ad_planning", "status": "complete", "data": ad_planning.model_dump()}
 
