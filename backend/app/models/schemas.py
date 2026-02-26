@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class BriefInput(BaseModel):
@@ -75,12 +75,23 @@ class BarrierResult(BaseModel):
 class TargetSegment(BaseModel):
     """Target segment definition."""
 
+    model_config = ConfigDict(extra="ignore")
+
     segment_name: str
     description: str
     demographics: str
     psychographics: str
     behaviors: str
     priority: Literal["primary", "secondary"]
+
+    @field_validator("demographics", "psychographics", "behaviors", mode="before")
+    @classmethod
+    def coerce_to_str(cls, v: object) -> str:
+        if isinstance(v, dict):
+            return ", ".join(f"{k}: {val}" for k, val in v.items())
+        if isinstance(v, list):
+            return ", ".join(str(i) for i in v)
+        return str(v) if v is not None else ""
 
 
 class ConsumerInsight(BaseModel):
