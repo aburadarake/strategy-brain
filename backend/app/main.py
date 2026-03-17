@@ -1,10 +1,17 @@
 """FastAPI application entry point."""
 
-from fastapi import FastAPI
+import logging
+import traceback
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import router
 from app.config import get_settings
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -19,11 +26,25 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[
+        "https://aburadarake.github.io",
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """500エラー時もCORSヘッダーが付いたレスポンスを返す。"""
+    logger.error("Unhandled exception: %s\n%s", exc, traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
 
 # Include API routes
 app.include_router(router, prefix="/api")

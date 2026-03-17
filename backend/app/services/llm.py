@@ -5,8 +5,8 @@ import re
 from functools import lru_cache
 from typing import Any
 
-from anthropic import Anthropic, AnthropicVertex
-from openai import OpenAI
+from anthropic import AsyncAnthropic, AnthropicVertex
+from openai import AsyncOpenAI
 
 from app.config import get_settings
 
@@ -25,13 +25,24 @@ def _extract_json(text: str) -> dict[str, Any]:
     if not text or not text.strip():
         raise ValueError("LLMレスポンスが空です")
 
-    # ── Strategy 1: マークダウンコードブロックを探す ──────────────
-    code_block = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
-    if code_block:
-        candidate = code_block.group(1).strip()
+    # ── Strategy 1: マークダウンコードブロックを探す（最後の ``` を閉じとする）──
+    open_fence = re.search(r"```(?:json)?\s*\n?", text)
+    if open_fence:
+        inner = text[open_fence.end():]
+        # 閉じコードフェンスがあれば除去、なければそのまま使う
+        last_fence = inner.rfind("```")
+        candidate = (inner[:last_fence] if last_fence != -1 else inner).strip()
         result = _try_parse_json(candidate)
         if result is not None:
             return result
+        # candidate から { ... } を取り出して再試行
+        s = candidate.find("{")
+        if s != -1:
+            obj = _extract_outermost_object(candidate, s)
+            if obj:
+                result = _try_parse_json(obj)
+                if result is not None:
+                    return result
 
     # ── Strategy 2: 最外側の { ... } を抽出する ──────────────────
     start = text.find("{")
@@ -112,20 +123,20 @@ class LLMService:
 
     def __init__(self):
         self.settings = get_settings()
-        self._openai_client: OpenAI | None = None
-        self._anthropic_client: Anthropic | None = None
+        self._openai_client: AsyncOpenAI | None = None
+        self._anthropic_client: AsyncAnthropic | None = None
         self._vertex_client: AnthropicVertex | None = None
 
     @property
-    def openai_client(self) -> OpenAI:
+    def openai_client(self) -> AsyncOpenAI:
         if self._openai_client is None:
-            self._openai_client = OpenAI(api_key=self.settings.get_openai_key())
+            self._openai_client = AsyncOpenAI(api_key=self.settings.get_openai_key())
         return self._openai_client
 
     @property
-    def anthropic_client(self) -> Anthropic:
+    def anthropic_client(self) -> AsyncAnthropic:
         if self._anthropic_client is None:
-            self._anthropic_client = Anthropic(api_key=self.settings.get_anthropic_key())
+            self._anthropic_client = AsyncAnthropic(api_key=self.settings.get_anthropic_key())
         return self._anthropic_client
 
     @property
@@ -170,8 +181,8 @@ class LLMService:
         temperature: float,
         max_tokens: int,
     ) -> str:
-        """Generate using OpenAI."""
-        response = self.openai_client.chat.completions.create(
+        """Generate using OpenAI (async)."""
+        response = await self.openai_client.chat.completions.create(
             model=self.settings.openai_model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -189,8 +200,8 @@ class LLMService:
         temperature: float,
         max_tokens: int,
     ) -> str:
-        """Generate using Anthropic Claude."""
-        response = self.anthropic_client.messages.create(
+        """Generate using Anthropic Claude (async)."""
+        response = await self.anthropic_client.messages.create(
             model=self.settings.anthropic_model,
             max_tokens=max_tokens,
             system=system_prompt,
@@ -225,16 +236,32 @@ class LLMService:
         max_tokens: int = 4096,
     ) -> dict[str, Any]:
         """Generate and parse JSON response."""
+        provider = provider or self.settings.llm_provider
+
         json_system = (
             f"{system_prompt}\n\n"
             "重要: 必ず有効なJSONのみを出力してください。"
             "説明文・前置き・後置きテキスト・マークダウンは含めないでください。"
         )
 
+        # OpenAI は response_format で確実に JSON を返させる
+        if provider == "openai":
+            response = await self.openai_client.chat.completions.create(
+                model=self.settings.openai_model,
+                messages=[
+                    {"role": "system", "content": json_system},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+            )
+            content = response.choices[0].message.content or "{}"
+            return json.loads(content)
+
         response = await self.generate(
             json_system, user_prompt, provider, temperature, max_tokens
         )
-
         return _extract_json(response)
 
 

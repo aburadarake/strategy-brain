@@ -66,7 +66,7 @@ class BigIdeaGenerator:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             temperature=0.8,  # Slightly higher for creativity
-            max_tokens=4096,
+            max_tokens=6144,
         )
 
         try:

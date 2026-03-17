@@ -65,7 +65,7 @@ class CopyWriter:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             temperature=0.9,  # Higher for creative diversity
-            max_tokens=4096,
+            max_tokens=8192,
         )
 
         try:

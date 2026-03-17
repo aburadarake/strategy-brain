@@ -1,8 +1,35 @@
 """Pydantic schemas for Strategy Brain."""
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+def _coerce_str(v: object) -> str:
+    """LLMがdictやlistで返してきた場合に文字列へ強制変換する。"""
+    if isinstance(v, dict):
+        return ", ".join(f"{k}: {val}" for k, val in v.items())
+    if isinstance(v, list):
+        return ", ".join(str(i) for i in v)
+    return str(v) if v is not None else ""
+
+
+class LLMBaseModel(BaseModel):
+    """str型フィールドにdict/listが来た場合に自動で文字列変換するベースモデル。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_str_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        for name, field in cls.model_fields.items():
+            if name in data and field.annotation is str:
+                val = data[name]
+                if isinstance(val, (dict, list)):
+                    data[name] = _coerce_str(val)
+        return data
 
 
 class BriefInput(BaseModel):
@@ -17,7 +44,7 @@ class BriefInput(BaseModel):
     additional_info: str = Field(default="", description="その他の情報")
 
 
-class BarrierItem(BaseModel):
+class BarrierItem(LLMBaseModel):
     """Individual barrier item."""
 
     id: int
@@ -31,7 +58,7 @@ class BarrierAnalysis(BaseModel):
     barriers: list[BarrierItem] = Field(description="使わない理由リスト（30項目）")
 
 
-class CausalRelation(BaseModel):
+class CausalRelation(LLMBaseModel):
     """Causal relationship between barriers."""
 
     from_id: int
@@ -46,7 +73,7 @@ class CausalityResult(BaseModel):
     key_barriers: list[int] = Field(description="つながりが多い重要な障壁のID")
 
 
-class ABCItem(BaseModel):
+class ABCItem(LLMBaseModel):
     """ABC classified barrier item."""
 
     barrier_id: int
@@ -72,10 +99,8 @@ class BarrierResult(BaseModel):
     mermaid_diagram: str = Field(description="Mermaid形式の図解")
 
 
-class TargetSegment(BaseModel):
+class TargetSegment(LLMBaseModel):
     """Target segment definition."""
-
-    model_config = ConfigDict(extra="ignore")
 
     segment_name: str
     description: str
@@ -84,22 +109,22 @@ class TargetSegment(BaseModel):
     behaviors: str
     priority: Literal["primary", "secondary"]
 
-    @field_validator("demographics", "psychographics", "behaviors", mode="before")
-    @classmethod
-    def coerce_to_str(cls, v: object) -> str:
-        if isinstance(v, dict):
-            return ", ".join(f"{k}: {val}" for k, val in v.items())
-        if isinstance(v, list):
-            return ", ".join(str(i) for i in v)
-        return str(v) if v is not None else ""
 
-
-class ConsumerInsight(BaseModel):
+class ConsumerInsight(LLMBaseModel):
     """Consumer insight."""
 
     insight: str
     tension: str = Field(description="消費者が抱える矛盾・葛藤")
     opportunity: str = Field(description="ブランドが入り込む機会")
+
+
+class NewMarket(LLMBaseModel):
+    """新市場・新ターゲットの可能性（Vol.2）."""
+
+    pattern: str = Field(description="パターン種別（延長線上/同心円/異なるところ）")
+    target: str = Field(description="新しいターゲット・市場の定義")
+    unconventional_use: str = Field(description="常識外れな使い方とそのインサイト")
+    opportunity: str = Field(description="このターゲットへの参入機会と戦略的意義")
 
 
 class WhoAnalysis(BaseModel):
@@ -109,9 +134,10 @@ class WhoAnalysis(BaseModel):
     segments: list[TargetSegment] = Field(description="ターゲットセグメンテーション")
     insights: list[ConsumerInsight] = Field(description="消費者インサイト")
     unmet_needs: list[str] = Field(description="未充足ニーズ")
+    new_markets: list[NewMarket] = Field(default=[], description="新市場・新ターゲットの可能性（Vol.2）")
 
 
-class MarketAnalysis(BaseModel):
+class MarketAnalysis(LLMBaseModel):
     """Market environment analysis."""
 
     market_overview: str
@@ -119,7 +145,7 @@ class MarketAnalysis(BaseModel):
     positioning_opportunity: str
 
 
-class BrandDiagnosis(BaseModel):
+class BrandDiagnosis(LLMBaseModel):
     """Brand diagnosis."""
 
     strengths: list[str]
@@ -127,7 +153,7 @@ class BrandDiagnosis(BaseModel):
     perception_gap: str = Field(description="認識ギャップ")
 
 
-class ValueProposition(BaseModel):
+class ValueProposition(LLMBaseModel):
     """Value proposition."""
 
     functional_value: str
@@ -144,9 +170,10 @@ class WhatAnalysis(BaseModel):
     barrier_strategies: list[dict] = Field(description="障壁打破戦略")
     value_proposition: ValueProposition
     differentiation: list[str] = Field(description="戦略的差別化要素")
+    qualitative_goals: list[str] = Field(default=[], description="定性目標（○○から××へ）3案（Vol.3）")
 
 
-class DoubtQuestion(BaseModel):
+class DoubtQuestion(LLMBaseModel):
     """細田式3D - Doubtの問い."""
 
     angle: str = Field(default="", description="固定観念の破壊の角度・切り口")
@@ -154,7 +181,7 @@ class DoubtQuestion(BaseModel):
     insight: str = Field(description="破壊後に見えてくる真実")
 
 
-class DoubtAnalysis(BaseModel):
+class DoubtAnalysis(LLMBaseModel):
     """細田式3D - STEP 1: DOUBT（疑う）."""
 
     original_challenge: str = Field(description="元の課題")
@@ -163,7 +190,7 @@ class DoubtAnalysis(BaseModel):
     average_answers: list[str] = Field(description="AIや競合が出しそうな凡庸な正解")
 
 
-class ReframingJourney(BaseModel):
+class ReframingJourney(LLMBaseModel):
     """リフレーミングの変換過程."""
 
     from_: str = Field(alias="from", description="元のビジネス視点")
@@ -171,7 +198,7 @@ class ReframingJourney(BaseModel):
     because: str = Field(description="その背景にある人間の真実")
 
 
-class DiscoverAnalysis(BaseModel):
+class DiscoverAnalysis(LLMBaseModel):
     """細田式3D - STEP 2: DISCOVER（発見する）."""
 
     business_challenge: str = Field(description="元のビジネス課題")
@@ -181,7 +208,7 @@ class DiscoverAnalysis(BaseModel):
     reframing_journey: dict = Field(description="リフレーミングの変換過程")
 
 
-class DesignIdea(BaseModel):
+class DesignIdea(LLMBaseModel):
     """細田式3D - Designのアイデア."""
 
     concept: str = Field(description="可能性解放のコンセプト")
@@ -190,7 +217,7 @@ class DesignIdea(BaseModel):
     world_after: str = Field(description="実現後の世界観")
 
 
-class DesignAnalysis(BaseModel):
+class DesignAnalysis(LLMBaseModel):
     """細田式3D - STEP 3: DESIGN（デザインする）."""
 
     ideas: list[DesignIdea] = Field(description="3つの可能性解放アイデア")
@@ -206,7 +233,7 @@ class Hosoda3DResult(BaseModel):
     design: DesignAnalysis = Field(description="DESIGN: デザインする")
 
 
-class BigIdea(BaseModel):
+class BigIdea(LLMBaseModel):
     """BIG IDEA result."""
 
     idea: str = Field(description="BIG IDEA本文")
@@ -215,7 +242,7 @@ class BigIdea(BaseModel):
     alternative_ideas: list[str] = Field(description="代替案")
 
 
-class CopyVariation(BaseModel):
+class CopyVariation(LLMBaseModel):
     """Copy variation."""
 
     headline: str
@@ -235,22 +262,47 @@ class CopyOutput(BaseModel):
     recommendation_reason: str
 
 
-class OOHCopy(BaseModel):
+class OOHCopy(LLMBaseModel):
     """OOH広告コピー案."""
+
     text: str = Field(description="コピー本文", alias="copy")
     rationale: str = Field(default="", description="コピーの意図")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
-class SNSPost(BaseModel):
+class SNSPost(LLMBaseModel):
     """SNS投稿フォーマット."""
+
     format: str = Field(description="投稿形式（例: 二択投票, テンプレ投稿, etc.）")
     content: str = Field(description="投稿内容・テンプレート")
 
 
-class AdPlan(BaseModel):
+class IntegratedCampaign(LLMBaseModel):
+    """統合キャンペーン設計（アクアレーベル式）."""
+
+    video_concept: str = Field(default="", description="動画（起点）のコンセプトと15秒/30秒の構成概要")
+    kol_strategy: str = Field(default="", description="KOL施策：起用タイプ・投稿方針・ハッシュタグ設計")
+    ooh_placement: str = Field(default="", description="OOH展開：掲出場所・クリエイティブ方針")
+    ugc_campaign: str = Field(default="", description="UGC/ハッシュタグキャンペーン設計")
+    banner_format: str = Field(default="", description="バナー/静止画：フォーマットと展開方針")
+
+
+class Vol5Evaluation(LLMBaseModel):
+    """Vol.5の5軸評価."""
+
+    goal_alignment: int = Field(description="目的適合性（1-10）: ゴールへの最短距離か")
+    feasibility: int = Field(description="実現可能性（1-10）: 予算・リソース・納期で実施できるか")
+    competitive_advantage: int = Field(description="市場優位性（1-10）: 競合が模倣できない独自性があるか")
+    logical_soundness: int = Field(description="論理的整合性（1-10）: インサイトから施策まで飛躍なく筋が通っているか")
+    creative_inspiration: int = Field(description="創造的飛躍（1-10）: 期待を超える驚きがあるか")
+    total: int = Field(description="合計スコア（/50）")
+    verdict: str = Field(default="", description="総評（土台/エンジン/スパーク各レイヤーの評価）")
+
+
+class AdPlan(LLMBaseModel):
     """広告企画案（1案）."""
+
     plan_name: str = Field(description="企画名")
     method: str = Field(description="使用した発想法")
     core_message: str = Field(description="コアメッセージ（1行）")
@@ -260,10 +312,13 @@ class AdPlan(BaseModel):
     experiential_tactic: str = Field(description="体験/プロダクト/イベント/PR施策")
     success_criteria: str = Field(description="成功条件")
     kpi_examples: list[str] = Field(description="KPI例")
+    integrated_campaign: IntegratedCampaign | None = Field(default=None, description="統合キャンペーン設計")
+    vol5_evaluation: Vol5Evaluation | None = Field(default=None, description="Vol.5の5軸評価")
 
 
-class AdPlanResult(BaseModel):
+class AdPlanResult(LLMBaseModel):
     """広告企画6案の結果."""
+
     brand_concept: str = Field(description="ブランドコンセプト（一言）")
     concept_story: str = Field(description="コンセプトのストーリー・背景")
     new_perspectives: list[dict] = Field(description="商材に対する新しい視点5項目以上")

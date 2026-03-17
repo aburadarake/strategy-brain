@@ -11,6 +11,8 @@ from app.models.schemas import (
     AdPlan,
     OOHCopy,
     SNSPost,
+    IntegratedCampaign,
+    Vol5Evaluation,
 )
 from app.services.llm import LLMService
 
@@ -108,6 +110,32 @@ class AdPlanGenerator:
                 )
                 for p in plan_data.get("sns_posts", [])
             ]
+            # Parse integrated campaign
+            ic_data = plan_data.get("integrated_campaign", {})
+            integrated_campaign = None
+            if ic_data:
+                integrated_campaign = IntegratedCampaign(
+                    video_concept=ic_data.get("video_concept", ""),
+                    kol_strategy=ic_data.get("kol_strategy", ""),
+                    ooh_placement=ic_data.get("ooh_placement", ""),
+                    ugc_campaign=ic_data.get("ugc_campaign", ""),
+                    banner_format=ic_data.get("banner_format", ""),
+                )
+
+            # Parse Vol.5 evaluation
+            v5_data = plan_data.get("vol5_evaluation", {})
+            vol5_evaluation = None
+            if v5_data:
+                vol5_evaluation = Vol5Evaluation(
+                    goal_alignment=v5_data.get("goal_alignment", 0),
+                    feasibility=v5_data.get("feasibility", 0),
+                    competitive_advantage=v5_data.get("competitive_advantage", 0),
+                    logical_soundness=v5_data.get("logical_soundness", 0),
+                    creative_inspiration=v5_data.get("creative_inspiration", 0),
+                    total=v5_data.get("total", 0),
+                    verdict=v5_data.get("verdict", ""),
+                )
+
             plans.append(
                 AdPlan(
                     plan_name=plan_data.get("plan_name", ""),
@@ -119,6 +147,8 @@ class AdPlanGenerator:
                     experiential_tactic=plan_data.get("experiential_tactic", ""),
                     success_criteria=plan_data.get("success_criteria", ""),
                     kpi_examples=plan_data.get("kpi_examples", []),
+                    integrated_campaign=integrated_campaign,
+                    vol5_evaluation=vol5_evaluation,
                 )
             )
 
