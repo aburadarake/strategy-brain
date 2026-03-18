@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "プランニ・ング四世",
+  title: "プランニング5世",
   description: "戦略の深層を、言葉に変える。",
 };
 

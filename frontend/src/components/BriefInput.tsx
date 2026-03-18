@@ -88,7 +88,7 @@ export default function BriefInput({ onSubmit, isLoading }: BriefInputProps) {
           className="font-bold text-ink mb-4 tracking-tight"
           style={{ fontSize: "clamp(2.8rem, 7vw, 6rem)", lineHeight: 1.04, letterSpacing: "-0.03em" }}
         >
-          プランニ・ング四世
+          プランニング5世
         </h1>
         <p className="text-ink-muted text-lg tracking-wide">
           戦略の深層を、言葉に変える。

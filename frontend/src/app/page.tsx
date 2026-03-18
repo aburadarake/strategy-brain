@@ -26,7 +26,7 @@ export default function Home() {
           >
             <div>
               <span className="text-sm font-semibold tracking-widest text-ink-secondary uppercase">
-                プランニ・ング四世
+                プランニング5世
               </span>
             </div>
             <Button variant="secondary" onClick={reset} disabled={isLoading}>
@@ -67,7 +67,7 @@ export default function Home() {
       {showInput && (
         <footer className="absolute bottom-6 left-0 right-0 text-center">
           <p className="text-xs text-ink-faint tracking-widest uppercase">
-            プランニ・ング四世
+            プランニング5世
           </p>
         </footer>
       )}
