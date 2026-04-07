@@ -153,15 +153,6 @@ class StrategyOrchestrator:
         """
         import asyncio as _asyncio
 
-        async def with_keepalive(coro, running_step: str, message: str):
-            """コルーチンを実行しながら、15秒ごとに keepalive を yield するラッパー。"""
-            task = _asyncio.ensure_future(coro)
-            while not task.done():
-                await _asyncio.sleep(15)
-                if not task.done():
-                    yield {"step": "keepalive", "status": "running", "message": message}
-            return await task
-
         yield {"step": "start", "message": "分析を開始します..."}
 
         # ── 細田式3D（別視点）と障壁分析を並列起動 ──────────────
