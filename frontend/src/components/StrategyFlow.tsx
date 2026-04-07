@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import MermaidDiagram from "./MermaidDiagram";
 import WhoCard from "./WhoCard";
@@ -9,6 +10,8 @@ import CopyOutput from "./CopyOutput";
 import AdPlanningCard from "./AdPlanningCard";
 import Hosoda3DCard from "./Hosoda3DCard";
 import { useStrategyStore } from "@/hooks/useStrategy";
+import { api, StrategySynthesisResult, WhyFrame, WhoFrame, WhatFrame, HowFrame } from "@/lib/api";
+import { safeStr } from "@/lib/utils";
 
 const STEPS = [
   { id: "barriers", label: "障壁分析" },
@@ -24,7 +27,10 @@ const fadeUp = (delay = 0) => ({
 });
 
 export default function StrategyFlow() {
-  const { step, isLoading, statusMessage, hosoda3d, barriers, who, what, bigIdea, copy, adPlanning, error } = useStrategyStore();
+  const { step, isLoading, statusMessage, hosoda3d, barriers, who, what, bigIdea, copy, adPlanning, brief, error } = useStrategyStore();
+  const [synthesis, setSynthesis] = useState<StrategySynthesisResult | null>(null);
+  const [synthLoading, setSynthLoading] = useState(false);
+  const [synthError, setSynthError] = useState<string | null>(null);
 
   if (step === "idle") return null;
 
@@ -48,7 +54,6 @@ export default function StrategyFlow() {
     const currentIdx = STEPS.findIndex((s) => s.id === step);
     return (
       <motion.div {...fadeUp()} className="max-w-2xl mx-auto py-32">
-        {/* Big loading message */}
         <div className="text-center mb-20">
           <p className="text-ink-muted text-xs tracking-widest uppercase mb-6">分析中</p>
           <motion.p
@@ -63,7 +68,6 @@ export default function StrategyFlow() {
           </motion.p>
         </div>
 
-        {/* Step progress */}
         <div className="flex items-center justify-center gap-0">
           {STEPS.map((s, i) => {
             const done = currentIdx > i;
@@ -99,18 +103,80 @@ export default function StrategyFlow() {
     );
   }
 
+  /* ── Synthesis handler ──────────────────── */
+  const handleGenerateSynthesis = async () => {
+    if (!who || !what || !bigIdea) return;
+    setSynthLoading(true);
+    setSynthError(null);
+
+    const whoText = [
+      who.segments.length > 0 ? `主要ターゲット: ${who.segments[0]?.segment_name}` : "",
+      who.insights.length > 0 ? `コアインサイト: ${safeStr(who.insights[0]?.insight)}` : "",
+      who.unmet_needs.length > 0 ? `未充足ニーズ: ${who.unmet_needs.slice(0, 3).map(safeStr).join(" / ")}` : "",
+    ].filter(Boolean).join("\n");
+
+    const whatText = [
+      `BIG IDEA: ${safeStr(bigIdea.idea)}`,
+      `コアバリュープロポジション: ${safeStr(what.value_proposition.core_proposition)}`,
+      `差別化要素: ${what.differentiation.slice(0, 3).map(safeStr).join(" / ")}`,
+    ].filter(Boolean).join("\n");
+
+    try {
+      const res = await api.strategySynthesis({
+        product_name: brief?.product_name ?? "",
+        who_insights: whoText,
+        what_insights: whatText,
+      });
+      setSynthesis(res);
+    } catch (e) {
+      setSynthError(e instanceof Error ? e.message : "エラーが発生しました");
+    } finally {
+      setSynthLoading(false);
+    }
+  };
+
   /* ── Results ────────────────────────────── */
   return (
     <div className="space-y-24">
 
-      {/* ── SECTION LABEL helper ── */}
+      {/* ── STRATEGY OVERVIEW — hero summary when complete ── */}
+      {step === "complete" && bigIdea && (
+        <motion.section {...fadeUp(0.0)}>
+          <div className="bg-black rounded-3xl overflow-hidden">
+            <div className="p-10 md:p-14">
+              <p className="text-white/30 text-xs font-semibold tracking-widest uppercase mb-6">
+                {brief?.product_name}
+              </p>
+              <p
+                className="text-white font-bold leading-tight mb-8"
+                style={{ fontSize: "clamp(2rem, 5vw, 3.6rem)", letterSpacing: "-0.03em", lineHeight: 1.08 }}
+              >
+                {safeStr(bigIdea.idea)}
+              </p>
+              {who && who.insights.length > 0 && (
+                <div className="border-t border-white/10 pt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-white/30 text-xs font-semibold tracking-widest uppercase mb-2">コアインサイト</p>
+                    <p className="text-white/70 text-sm leading-relaxed">&ldquo;{safeStr(who.insights[0].insight)}&rdquo;</p>
+                  </div>
+                  {what && (
+                    <div>
+                      <p className="text-white/30 text-xs font-semibold tracking-widest uppercase mb-2">バリュープロポジション</p>
+                      <p className="text-white/70 text-sm leading-relaxed">{safeStr(what.value_proposition.core_proposition)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.section>
+      )}
 
       {/* Barrier Analysis */}
       {barriers && (
         <motion.section {...fadeUp(0.0)}>
           <SectionLabel index="01" title="障壁分析" subtitle="使わない理由30項目と因果構造" />
           <div className="mt-10 space-y-8">
-            {/* ABC counts */}
             <div className="grid grid-cols-3 gap-6">
               {[
                 { label: "A — プロダクト解決", count: barriers.classification.a_items.length, color: "bg-emerald-50 border-emerald-100", text: "text-emerald-700" },
@@ -124,7 +190,6 @@ export default function StrategyFlow() {
               ))}
             </div>
 
-            {/* Key barriers */}
             <div>
               <p className="text-xs font-semibold text-ink-faint tracking-widest uppercase mb-4">急所 — つながりが多い障壁</p>
               <div className="flex flex-wrap gap-3">
@@ -146,7 +211,6 @@ export default function StrategyFlow() {
               </div>
             </div>
 
-            {/* Diagram */}
             <div>
               <p className="text-xs font-semibold text-ink-faint tracking-widest uppercase mb-4">因果関係図</p>
               <MermaidDiagram chart={barriers.mermaid_diagram} />
@@ -196,10 +260,152 @@ export default function StrategyFlow() {
         </motion.section>
       )}
 
+      {/* ── WHY/WHO/WHAT/HOW 戦略フレーム ─────────────────────────── */}
+      {step === "complete" && who && what && bigIdea && (
+        <motion.section {...fadeUp(0.05)}>
+          <div className="flex items-center gap-4 mb-10">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs font-semibold text-ink-faint tracking-widest uppercase whitespace-nowrap">
+              戦略フレーム
+            </span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          {!synthesis && !synthLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12 bg-gray-50 rounded-3xl"
+            >
+              <p
+                className="font-bold text-ink mb-2"
+                style={{ fontSize: "clamp(1.4rem, 3vw, 2rem)", letterSpacing: "-0.02em" }}
+              >
+                WHY / WHO / WHAT / HOW
+              </p>
+              <p className="text-ink-muted text-sm mb-8">分析結果を統合して、4層の戦略フレームを生成します</p>
+              <button
+                onClick={handleGenerateSynthesis}
+                className="px-8 py-3.5 bg-black text-white rounded-full text-sm font-semibold hover:bg-gray-900 transition-colors"
+              >
+                戦略フレームを生成
+              </button>
+              {synthError && <p className="text-sm text-red-500 mt-4">{synthError}</p>}
+            </motion.div>
+          )}
+
+          {synthLoading && (
+            <div className="text-center py-16 bg-gray-50 rounded-3xl">
+              <motion.div
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 1.8, repeat: Infinity }}
+                className="text-ink font-medium"
+              >
+                戦略フレームを生成中...
+              </motion.div>
+            </div>
+          )}
+
+          {synthesis && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="space-y-5"
+            >
+              {/* Headline */}
+              <div className="bg-black rounded-3xl p-8 md:p-10">
+                <p className="text-white/30 text-xs font-semibold tracking-widest uppercase mb-4">戦略ヘッドライン</p>
+                <p
+                  className="text-white font-bold leading-tight"
+                  style={{ fontSize: "clamp(1.6rem, 4vw, 2.8rem)", letterSpacing: "-0.025em", lineHeight: 1.1 }}
+                >
+                  {synthesis.strategy_headline}
+                </p>
+              </div>
+
+              {/* 4 frames */}
+              {(
+                [
+                  { key: "why" as const, label: "WHY", bg: "bg-violet-50", border: "border-violet-100", badge: "bg-violet-100 text-violet-700", accent: "text-violet-900" },
+                  { key: "who" as const, label: "WHO", bg: "bg-blue-50", border: "border-blue-100", badge: "bg-blue-100 text-blue-700", accent: "text-blue-900" },
+                  { key: "what" as const, label: "WHAT", bg: "bg-emerald-50", border: "border-emerald-100", badge: "bg-emerald-100 text-emerald-700", accent: "text-emerald-900" },
+                  { key: "how" as const, label: "HOW", bg: "bg-amber-50", border: "border-amber-100", badge: "bg-amber-100 text-amber-700", accent: "text-amber-900" },
+                ] as const
+              ).map((f, i) => {
+                const frame = synthesis[f.key];
+                const statement = (frame as { statement: string }).statement;
+                return (
+                  <motion.div
+                    key={f.key}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + i * 0.07, duration: 0.5 }}
+                    className={`rounded-3xl border ${f.bg} ${f.border} overflow-hidden`}
+                  >
+                    <div className="px-6 pt-5 pb-4 flex items-start gap-4">
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full ${f.badge} tracking-widest flex-shrink-0 mt-0.5`}>
+                        {f.label}
+                      </span>
+                      <p className={`text-base font-bold leading-snug ${f.accent}`}>{statement}</p>
+                    </div>
+                    <div className="px-6 pb-5 pt-4 border-t border-white/60 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {f.key === "why" && (
+                        <>
+                          <Detail label="消費者の葛藤" value={(frame as WhyFrame).core_tension} />
+                          <Detail label="社会・文化的文脈" value={(frame as WhyFrame).cultural_context} />
+                          <Detail label="ブランドの必然性" value={(frame as WhyFrame).brand_opportunity} />
+                        </>
+                      )}
+                      {f.key === "who" && (
+                        <>
+                          <Detail label="ターゲット像" value={(frame as WhoFrame).primary_target} />
+                          <Detail label="心理・世界観" value={(frame as WhoFrame).mindset} />
+                          <Detail label="本質的な葛藤" value={(frame as WhoFrame).key_tension} />
+                        </>
+                      )}
+                      {f.key === "what" && (
+                        <>
+                          <Detail label="核心メッセージ" value={(frame as WhatFrame).core_message} />
+                          <Detail label="ブランドの役割" value={(frame as WhatFrame).brand_role} />
+                          <Detail label="価値の約束" value={(frame as WhatFrame).value_promise} />
+                        </>
+                      )}
+                      {f.key === "how" && (
+                        <>
+                          <Detail label="アプローチ" value={(frame as HowFrame).communication_approach} />
+                          <Detail label="トーン＆マナー" value={(frame as HowFrame).tone_manner} />
+                          <div>
+                            <p className="text-xs font-semibold text-ink-faint tracking-widest uppercase mb-2">具体的施策</p>
+                            <ul className="space-y-1.5">
+                              {(frame as HowFrame).key_tactics.map((t, j) => (
+                                <li key={j} className="flex gap-2 items-start">
+                                  <span className="text-xs text-ink-faint shrink-0 mt-0.5">{j + 1}.</span>
+                                  <p className="text-sm text-ink">{t}</p>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+
+              {/* Strategy statement */}
+              <div className="bg-gray-50 rounded-3xl p-6">
+                <p className="text-xs font-semibold text-ink-faint tracking-widest uppercase mb-3">戦略ステートメント</p>
+                <p className="text-ink leading-relaxed whitespace-pre-line text-sm">{synthesis.strategy_statement}</p>
+              </div>
+            </motion.div>
+          )}
+        </motion.section>
+      )}
+
       {/* ── 細田式3Dモデル（別視点分析）────────────────────────── */}
       {hosoda3d && (
         <motion.section {...fadeUp(0.05)}>
-          {/* 区切り線 + 別分析ラベル */}
           <div className="flex items-center gap-4 mb-8">
             <div className="flex-1 h-px bg-amber-200" />
             <span className="text-xs font-semibold text-amber-500 tracking-widest uppercase whitespace-nowrap">
@@ -245,6 +451,15 @@ function SectionLabel({ index, title, subtitle }: { index: string; title: string
         </h2>
         <p className="text-ink-muted text-sm mt-1">{subtitle}</p>
       </div>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-ink-faint tracking-widest uppercase mb-1">{label}</p>
+      <p className="text-sm text-ink leading-relaxed">{value}</p>
     </div>
   );
 }

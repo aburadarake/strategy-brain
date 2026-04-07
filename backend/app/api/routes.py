@@ -16,8 +16,24 @@ from app.models.schemas import (
     StrategyResult,
     Hosoda3DResult,
     AdPlanResult,
+    EvaluationInput,
+    EvaluationResult,
+    DeskResearchInput,
+    DeskResearchResult,
+    DeskResearchStage2,
+    SocialListeningInput,
+    SocialListeningResult,
+    InterviewAnalysisInput,
+    InterviewAnalysisResult,
+    StrategySynthesisInput,
+    StrategySynthesisResult,
 )
 from app.brain.orchestrator import StrategyOrchestrator
+from app.brain.evaluation import PlanEvaluator
+from app.brain.desk_research import DeskResearcher
+from app.brain.social_listening import SocialListeningAnalyzer
+from app.brain.interview_analysis import InterviewAnalyzer
+from app.brain.strategy_synthesis import StrategySynthesizer
 from app.services.file_processor import file_processor
 from app.services.llm import get_llm_service
 
@@ -366,6 +382,103 @@ async def get_providers() -> dict:
             "anthropic": settings.anthropic_model,
         },
     }
+
+
+@router.post("/evaluate", response_model=EvaluationResult)
+async def evaluate_plan(input: EvaluationInput) -> EvaluationResult:
+    """
+    Vol.5: 企画を5軸でスコアリング評価する。
+
+    5軸:
+    1. 目的適合性 (Goal Alignment)
+    2. 実現可能性 (Feasibility)
+    3. 市場優位性 (Competitive Advantage)
+    4. 論理的整合性 (Logical Soundness)
+    5. 創造的飛躍 (Creative Inspiration)
+    """
+    try:
+        llm_service = get_llm_service()
+        evaluator = PlanEvaluator(llm_service)
+        return await evaluator.evaluate(input)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/desk-research", response_model=DeskResearchResult)
+async def desk_research(input: DeskResearchInput) -> DeskResearchResult:
+    """
+    Vol.6: AIデスクリサーチ — 俯瞰マップ（+ オプションで深掘り）。
+
+    deep_dive_focus が入力された場合、第2段階の深掘りも実行する。
+    """
+    try:
+        llm_service = get_llm_service()
+        researcher = DeskResearcher(llm_service)
+        return await researcher.research(input)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/desk-research/deep-dive", response_model=DeskResearchStage2)
+async def desk_research_deep_dive(input: DeskResearchInput) -> DeskResearchStage2:
+    """
+    Vol.6: デスクリサーチ第2段階のみ実行（深掘り）。
+
+    deep_dive_focus に深掘り対象を指定すること。
+    """
+    try:
+        llm_service = get_llm_service()
+        researcher = DeskResearcher(llm_service)
+        return await researcher.research_stage2(input)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/social-listening", response_model=SocialListeningResult)
+async def social_listening(input: SocialListeningInput) -> SocialListeningResult:
+    """
+    Vol.7: ソーシャルリスニング分析。
+
+    SNS投稿データ（Grok等で収集）を貼り付けてインサイトを抽出する。
+    sns_data が空の場合はカテゴリの一般的な傾向から推測する。
+    """
+    try:
+        llm_service = get_llm_service()
+        analyzer = SocialListeningAnalyzer(llm_service)
+        return await analyzer.analyze(input)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/interview-analysis", response_model=InterviewAnalysisResult)
+async def interview_analysis(input: InterviewAnalysisInput) -> InterviewAnalysisResult:
+    """
+    Vol.8: インタビュー分析 — 文字起こしを構造化分析する。
+
+    インタビュー発話録をAIで構造化し、インサイトを抽出する。
+    """
+    try:
+        llm_service = get_llm_service()
+        analyzer = InterviewAnalyzer(llm_service)
+        return await analyzer.analyze(input)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/strategy-synthesis", response_model=StrategySynthesisResult)
+async def strategy_synthesis(input: StrategySynthesisInput) -> StrategySynthesisResult:
+    """
+    WHY/WHO/WHAT/HOW 戦略合成。
+
+    各種分析結果（デスクリサーチ、SNSリスニング、インタビュー分析、WHO/WHAT/BIG IDEAなど）を
+    入力として、WHY → WHO → WHAT → HOW の4層からなる戦略フレームに統合する。
+    """
+    try:
+        llm_service = get_llm_service()
+        synthesizer = StrategySynthesizer(llm_service)
+        return await synthesizer.synthesize(input)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/provider")

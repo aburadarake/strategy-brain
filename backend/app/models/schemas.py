@@ -338,3 +338,260 @@ class StrategyResult(BaseModel):
     big_idea: BigIdea
     copywriting: CopyOutput
     ad_planning: AdPlanResult | None = Field(default=None, description="広告企画6案")
+
+
+# ── Vol.5 企画評価（スタンドアロン）────────────────────────────────
+
+class EvaluationAxisScore(LLMBaseModel):
+    """5軸評価の1軸分のスコアと詳細."""
+
+    score: int = Field(description="スコア（1-10）")
+    strengths: list[str] = Field(description="強み")
+    weaknesses: list[str] = Field(description="弱み")
+    improvement: str = Field(description="具体的な改善提案")
+
+
+class EvaluationInput(BaseModel):
+    """企画評価の入力."""
+
+    plan_content: str = Field(description="評価対象の企画内容")
+    context: str = Field(default="", description="背景情報（オリエン資料等）")
+    balance_priority: str = Field(default="", description="評価スタンス（例: 手堅く / 独自性重視）")
+
+
+class EvaluationResult(BaseModel):
+    """5軸評価の結果."""
+
+    plan_title: str = Field(description="企画タイトル/概要")
+    goal_alignment: EvaluationAxisScore
+    feasibility: EvaluationAxisScore
+    competitive_advantage: EvaluationAxisScore
+    logical_soundness: EvaluationAxisScore
+    creative_inspiration: EvaluationAxisScore
+    total_score: int = Field(description="合計スコア（/50）")
+    summary: str = Field(description="全体評価サマリー")
+    strategic_advice: str = Field(description="企画を化けさせるための一手")
+    layer_evaluation: str = Field(description="土台/エンジン/スパーク各レイヤーの評価")
+
+
+# ── Vol.6 デスクリサーチ────────────────────────────────────────────
+
+class DeskResearchInput(BaseModel):
+    """デスクリサーチの入力."""
+
+    category: str = Field(description="業種・カテゴリ名")
+    context: str = Field(default="", description="追加情報")
+    deep_dive_focus: str = Field(default="", description="深掘りしたいポイント（第2段階用）")
+
+
+class DeskResearchBlindSpot(LLMBaseModel):
+    """デスクリサーチの盲点."""
+
+    title: str
+    description: str
+
+
+class DeskResearchDiscussionPoint(LLMBaseModel):
+    """初回ミーティングの論点."""
+
+    title: str
+    description: str
+    why_interesting: str = Field(default="", description="なぜ面白いか")
+
+
+class DeskResearchPlayerComm(LLMBaseModel):
+    """主要プレイヤーのコミュニケーション戦略."""
+
+    player_name: str
+    ad_approach: str = Field(description="広告アプローチ")
+    target_definition: str = Field(description="ターゲット定義")
+    content_style: str = Field(description="コンテンツスタイル")
+
+
+class DeskResearchStage1(BaseModel):
+    """デスクリサーチ第1段階: 俯瞰マップ."""
+
+    market_structure: str = Field(description="市場構造（規模・バリューチェーン・主要プレイヤー）")
+    player_communications: list[DeskResearchPlayerComm] = Field(description="主要プレイヤーのコミュニケーション")
+    blind_spots: list[DeskResearchBlindSpot] = Field(description="語られていない盲点5つ")
+    discussion_points: list[DeskResearchDiscussionPoint] = Field(description="初回ミーティングの論点5つ")
+
+
+class DeskResearchHistoryStage(LLMBaseModel):
+    """歴史の段階."""
+
+    period: str
+    description: str
+    why_it_changed: str = Field(description="なぜ変化が起きたか")
+
+
+class DeskResearchDisruptionPoint(LLMBaseModel):
+    """断絶点・境界線."""
+
+    title: str
+    description: str
+    scenario: str = Field(description="変容が起きる場合のシナリオ")
+
+
+class DeskResearchStage2(BaseModel):
+    """デスクリサーチ第2段階: 深掘り."""
+
+    focus: str = Field(description="深掘り対象")
+    history_stages: list[DeskResearchHistoryStage] = Field(description="歴史3段階")
+    disruption_points: list[DeskResearchDisruptionPoint] = Field(description="断絶点・境界線")
+    opportunities: list[str] = Field(description="コミュニケーション機会3つ")
+
+
+class DeskResearchResult(BaseModel):
+    """デスクリサーチの結果."""
+
+    category: str
+    stage1: DeskResearchStage1
+    stage2: DeskResearchStage2 | None = None
+
+
+# ── Vol.7 ソーシャルリスニング────────────────────────────────────
+
+class SocialListeningInput(BaseModel):
+    """ソーシャルリスニングの入力."""
+
+    brand_category: str = Field(description="ブランド名・カテゴリ名")
+    sns_data: str = Field(description="SNS投稿データ（貼り付け）")
+    context: str = Field(default="", description="追加コンテキスト")
+
+
+class SocialPattern(LLMBaseModel):
+    """発話パターン（STEP1）."""
+
+    pattern_name: str
+    description: str
+    volume: str = Field(description="投稿ボリューム（多い/中程度/少ない）")
+    sentiment: str = Field(description="感情（ポジティブ/ネガティブ/ニュートラル）")
+    tone: str = Field(description="語るトーン（情報共有/批評/感嘆/愚痴/日常/その他）")
+    examples: list[str] = Field(default=[], description="代表的な投稿例")
+
+
+class SocialInsightCategory(LLMBaseModel):
+    """感情・インサイト軸のカテゴリ（STEP2）."""
+
+    category_name: str
+    consumer_voice: str = Field(description="生活者の肉声表現")
+    description: str
+    volume: str = Field(description="ボリューム感")
+    key_insight: str = Field(description="このカテゴリのコアインサイト")
+
+
+class SocialListeningResult(BaseModel):
+    """ソーシャルリスニングの結果."""
+
+    brand_category: str
+    patterns: list[SocialPattern] = Field(description="STEP1: 発話パターン")
+    insight_categories: list[SocialInsightCategory] = Field(description="STEP2: 感情・インサイト軸")
+    untold_areas: list[str] = Field(description="語られていない/語られなさすぎる領域")
+    strategic_directions: list[str] = Field(description="STEP3: コミュニケーション戦略の方向（3つ）")
+
+
+# ── Vol.8 インタビュー分析────────────────────────────────────────
+
+class InterviewAnalysisInput(BaseModel):
+    """インタビュー分析の入力."""
+
+    transcript: str = Field(description="インタビュー文字起こし")
+    research_goal: str = Field(description="調査目的")
+    context: str = Field(default="", description="追加情報")
+
+
+class InterviewKeyStatement(LLMBaseModel):
+    """重要発言（STEP1）."""
+
+    content: str = Field(description="発言内容")
+    type: str = Field(description="種別: 事実/感情/矛盾/示唆")
+    significance: str = Field(description="なぜこの発言が重要か")
+
+
+class InterviewPattern(LLMBaseModel):
+    """パターン（STEP2）."""
+
+    pattern_type: str = Field(description="共通/特異/分岐点")
+    title: str
+    description: str
+    supporting_quotes: list[str] = Field(default=[], description="根拠となる発言")
+
+
+class InterviewInsight(LLMBaseModel):
+    """インサイト（STEP3）."""
+
+    insight_text: str = Field(description="「対象者は○○と思っている。なぜなら△△。しかし実際には□□」形式")
+    tension: str = Field(description="この矛盾が生む葛藤")
+    opportunity: str = Field(description="コミュニケーション機会")
+
+
+class InterviewAnalysisResult(BaseModel):
+    """インタビュー分析の結果."""
+
+    research_goal: str
+    key_statements: list[InterviewKeyStatement] = Field(description="STEP1: 重要発言")
+    patterns: list[InterviewPattern] = Field(description="STEP2: パターン")
+    insights: list[InterviewInsight] = Field(description="STEP3: インサイト")
+    strategic_directions: list[str] = Field(description="STEP4: 戦略への示唆")
+
+
+# ── WHY/WHO/WHAT/HOW 戦略合成 ─────────────────────────────────────
+
+class StrategySynthesisInput(BaseModel):
+    """WHY/WHO/WHAT/HOW戦略合成の入力."""
+
+    product_name: str = Field(description="製品・サービス名")
+    research_findings: str = Field(default="", description="リサーチ結果（デスクリサーチ、SNSリスニング、インタビューなど）")
+    who_insights: str = Field(default="", description="WHO分析・ターゲットインサイト")
+    what_insights: str = Field(default="", description="WHAT分析・価値提案・BIG IDEA")
+    how_insights: str = Field(default="", description="HOW分析・広告企画・コミュニケーション施策")
+    additional_context: str = Field(default="", description="補足情報")
+
+
+class WhyFrame(LLMBaseModel):
+    """WHY層: なぜこの戦略が必要か."""
+
+    core_tension: str = Field(description="消費者の根本的な葛藤・テンション")
+    cultural_context: str = Field(description="背景となる社会・文化的文脈")
+    brand_opportunity: str = Field(description="ブランドが入り込む必然性")
+    statement: str = Field(description="WHYを1文で表現")
+
+
+class WhoFrame(LLMBaseModel):
+    """WHO層: 誰に向けるのか."""
+
+    primary_target: str = Field(description="主要ターゲット像（ペルソナ）")
+    mindset: str = Field(description="ターゲットの心理状態・世界観")
+    key_tension: str = Field(description="ターゲットが抱える本質的な葛藤")
+    statement: str = Field(description="WHOを1文で表現")
+
+
+class WhatFrame(LLMBaseModel):
+    """WHAT層: 何を伝えるのか."""
+
+    core_message: str = Field(description="ブランドが伝える核心メッセージ")
+    brand_role: str = Field(description="このブランドが果たすべき役割")
+    value_promise: str = Field(description="ターゲットへの価値の約束")
+    statement: str = Field(description="WHATを1文で表現")
+
+
+class HowFrame(LLMBaseModel):
+    """HOW層: どう届けるのか."""
+
+    communication_approach: str = Field(description="コミュニケーションの基本アプローチ")
+    key_tactics: list[str] = Field(description="具体的な施策・戦術（3〜5つ）")
+    tone_manner: str = Field(description="トーン＆マナー")
+    statement: str = Field(description="HOWを1文で表現")
+
+
+class StrategySynthesisResult(BaseModel):
+    """WHY/WHO/WHAT/HOW戦略合成の結果."""
+
+    product_name: str
+    strategy_headline: str = Field(description="この戦略全体を貫くヘッドライン")
+    why: WhyFrame
+    who: WhoFrame
+    what: WhatFrame
+    how: HowFrame
+    strategy_statement: str = Field(description="WHY→WHO→WHAT→HOWをつなぐ戦略ステートメント")

@@ -75,17 +75,20 @@ export default function WhoCard({ data }: WhoCardProps) {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
-              className="border-l-2 border-ink pl-5"
+              className="bg-gray-50 rounded-2xl p-5"
             >
-              <p className="text-sm font-semibold text-ink leading-snug mb-2">
+              <p
+                className="font-bold text-ink leading-snug mb-3"
+                style={{ fontSize: "clamp(0.95rem, 1.5vw, 1.1rem)", letterSpacing: "-0.01em" }}
+              >
                 &ldquo;{safeStr(ins.insight)}&rdquo;
               </p>
-              <div className="space-y-1">
+              <div className="space-y-1.5 border-t border-gray-200 pt-3">
                 <p className="text-xs text-ink-muted">
-                  <span className="text-ink-faint">Tension —</span> {safeStr(ins.tension)}
+                  <span className="text-ink-faint font-semibold">Tension —</span> {safeStr(ins.tension)}
                 </p>
                 <p className="text-xs text-ink-muted">
-                  <span className="text-ink-faint">Opportunity —</span> {safeStr(ins.opportunity)}
+                  <span className="text-ink-faint font-semibold">Opportunity —</span> {safeStr(ins.opportunity)}
                 </p>
               </div>
             </motion.div>
