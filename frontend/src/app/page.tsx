@@ -162,7 +162,7 @@ export default function Home() {
       <BriefInput onSubmit={startAnalysis} isLoading={isLoading} />
 
       {/* ── Tool showcase ──────────────────────────────────── */}
-      <section className="border-t border-white/[0.07] px-6 pb-24">
+      <section className="border-t border-white/15 px-6 pb-24">
         <div className="max-w-5xl mx-auto">
 
           {/* Section header */}
@@ -171,9 +171,9 @@ export default function Home() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="py-16 border-b border-white/[0.07] mb-12"
+            className="py-16 border-b border-white/15 mb-12"
           >
-            <p className="text-white/20 text-xs tracking-[0.25em] uppercase mb-3">スタンドアロン・ツール</p>
+            <p className="text-white/45 text-xs tracking-[0.25em] uppercase mb-3">スタンドアロン・ツール</p>
             <h2
               className="font-bold text-white"
               style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)", letterSpacing: "-0.03em", lineHeight: 1.1 }}
@@ -193,12 +193,12 @@ export default function Home() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
                 whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                className="group text-left bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] hover:border-white/20 rounded-3xl p-7 transition-all duration-300"
+                className="group text-left bg-white/[0.04] hover:bg-white/[0.08] border border-white/15 hover:border-white/30 rounded-3xl p-7 transition-all duration-300"
               >
                 <div className="flex items-start justify-between mb-6">
-                  <span className="text-white/20 text-xs font-bold tracking-widest">{tool.index}</span>
+                  <span className="text-white/40 text-xs font-bold tracking-widest">{tool.index}</span>
                   <svg
-                    className="w-4 h-4 text-white/20 group-hover:text-white/60 transition-colors"
+                    className="w-4 h-4 text-white/35 group-hover:text-white/70 transition-colors"
                     fill="none" viewBox="0 0 24 24" stroke="currentColor"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 17L17 7M17 7H7M17 7v10" />
@@ -211,8 +211,8 @@ export default function Home() {
                 >
                   {tool.label}
                 </h3>
-                <p className="text-white/30 text-xs font-medium tracking-wide mb-4">{tool.desc}</p>
-                <p className="text-white/40 text-sm leading-relaxed group-hover:text-white/60 transition-colors">
+                <p className="text-white/50 text-xs font-medium tracking-wide mb-4">{tool.desc}</p>
+                <p className="text-white/55 text-sm leading-relaxed group-hover:text-white/75 transition-colors">
                   {tool.detail}
                 </p>
               </motion.button>
@@ -224,25 +224,25 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: TOOL_CARDS.length * 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="bg-white/[0.04] border border-white/[0.07] rounded-3xl p-7"
+              className="bg-white/[0.04] border border-white/15 rounded-3xl p-7"
             >
-              <span className="text-white/20 text-xs font-bold tracking-widest block mb-6">FULL</span>
+              <span className="text-white/40 text-xs font-bold tracking-widest block mb-6">FULL</span>
               <h3 className="font-bold text-white mb-1" style={{ fontSize: "1.25rem", letterSpacing: "-0.02em" }}>
                 戦略立案（フルコース）
               </h3>
-              <p className="text-white/30 text-xs font-medium tracking-wide mb-4">WHO / WHAT / BIG IDEA / コピー / 広告企画</p>
-              <p className="text-white/40 text-sm leading-relaxed">
+              <p className="text-white/50 text-xs font-medium tracking-wide mb-4">WHO / WHAT / BIG IDEA / コピー / 広告企画</p>
+              <p className="text-white/55 text-sm leading-relaxed">
                 障壁分析 → WHO/WHAT → BIG IDEA → コピーライティング → 広告企画6案まで、戦略の全工程を一気通貫で実行。細田式3Dモデルも同時並走。
               </p>
-              <p className="text-white/20 text-xs mt-4 pt-4 border-t border-white/[0.07]">↑ 上のフォームから開始</p>
+              <p className="text-white/35 text-xs mt-4 pt-4 border-t border-white/15">↑ 上のフォームから開始</p>
             </motion.div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/[0.07] px-6 py-8 text-center">
-        <p className="text-white/10 text-xs tracking-[0.3em] uppercase">
+      <footer className="border-t border-white/15 px-6 py-8 text-center">
+        <p className="text-white/25 text-xs tracking-[0.3em] uppercase">
           プ・ランニ・ング伍世
         </p>
       </footer>
