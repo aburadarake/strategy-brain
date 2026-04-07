@@ -38,7 +38,7 @@ jobs:
         run: npm run build
         working-directory: frontend
         env:
-          NEXT_PUBLIC_API_URL: https://backend-production-066f.up.railway.app/api
+          NEXT_PUBLIC_API_URL: ${{ secrets.BACKEND_URL }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
