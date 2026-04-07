@@ -338,6 +338,8 @@ class StrategyResult(BaseModel):
     big_idea: BigIdea
     copywriting: CopyOutput
     ad_planning: AdPlanResult | None = Field(default=None, description="広告企画6案")
+    desk_research: "DeskResearchResult | None" = Field(default=None, description="デスクリサーチ結果")
+    interview_analysis: "InterviewAnalysisResult | None" = Field(default=None, description="インタビュー分析結果")
 
 
 # ── Vol.5 企画評価（スタンドアロン）────────────────────────────────

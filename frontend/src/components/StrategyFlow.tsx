@@ -10,10 +10,11 @@ import CopyOutput from "./CopyOutput";
 import AdPlanningCard from "./AdPlanningCard";
 import Hosoda3DCard from "./Hosoda3DCard";
 import { useStrategyStore } from "@/hooks/useStrategy";
-import { api, StrategySynthesisResult, WhyFrame, WhoFrame, WhatFrame, HowFrame } from "@/lib/api";
+import { api, StrategySynthesisResult, WhyFrame, WhoFrame, WhatFrame, HowFrame, DeskResearchResult, InterviewAnalysisResult } from "@/lib/api";
 import { safeStr } from "@/lib/utils";
 
 const STEPS = [
+  { id: "desk_research", label: "デスクリサーチ" },
   { id: "barriers", label: "障壁分析" },
   { id: "who_what", label: "WHO / WHAT" },
   { id: "bigidea",  label: "BIG IDEA" },
@@ -27,7 +28,7 @@ const fadeUp = (delay = 0) => ({
 });
 
 export default function StrategyFlow() {
-  const { step, isLoading, statusMessage, hosoda3d, barriers, who, what, bigIdea, copy, adPlanning, brief, error } = useStrategyStore();
+  const { step, isLoading, statusMessage, hosoda3d, deskResearch, interviewAnalysis, barriers, who, what, bigIdea, copy, adPlanning, brief, error } = useStrategyStore();
   const [synthesis, setSynthesis] = useState<StrategySynthesisResult | null>(null);
   const [synthLoading, setSynthLoading] = useState(false);
   const [synthError, setSynthError] = useState<string | null>(null);
@@ -172,10 +173,88 @@ export default function StrategyFlow() {
         </motion.section>
       )}
 
+      {/* Desk Research */}
+      {deskResearch && (
+        <motion.section {...fadeUp(0.0)}>
+          <SectionLabel index="00" title="デスクリサーチ" subtitle="市場構造・競合コミュニケーション・盲点" />
+          <div className="mt-10 space-y-6">
+            <div className="bg-white rounded-2xl border border-stone-100 p-6">
+              <h4 className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-3">市場構造</h4>
+              <p className="text-ink text-sm leading-relaxed">{deskResearch.stage1.market_structure}</p>
+            </div>
+            {deskResearch.stage1.blind_spots.length > 0 && (
+              <div className="bg-white rounded-2xl border border-stone-100 p-6">
+                <h4 className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-3">語られていない盲点</h4>
+                <div className="space-y-3">
+                  {deskResearch.stage1.blind_spots.map((bs, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className="text-xs font-bold text-ink-faint mt-0.5">{String(i+1).padStart(2,"0")}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-ink">{bs.title}</p>
+                        <p className="text-sm text-ink-muted mt-0.5">{bs.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {deskResearch.stage1.player_communications.length > 0 && (
+              <div className="bg-white rounded-2xl border border-stone-100 p-6">
+                <h4 className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-3">競合コミュニケーション</h4>
+                <div className="space-y-4">
+                  {deskResearch.stage1.player_communications.map((p, i) => (
+                    <div key={i} className="border-b border-stone-50 pb-3 last:border-0 last:pb-0">
+                      <p className="text-sm font-semibold text-ink">{p.player_name}</p>
+                      <p className="text-xs text-ink-muted mt-1">{p.ad_approach}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.section>
+      )}
+
+      {/* Interview Analysis */}
+      {interviewAnalysis && (
+        <motion.section {...fadeUp(0.1)}>
+          <SectionLabel index="01" title="インタビュー分析" subtitle="定性データからのインサイト抽出" />
+          <div className="mt-10 space-y-6">
+            {interviewAnalysis.insights.length > 0 && (
+              <div className="bg-white rounded-2xl border border-stone-100 p-6">
+                <h4 className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-3">コアインサイト</h4>
+                <div className="space-y-4">
+                  {interviewAnalysis.insights.map((ins, i) => (
+                    <div key={i} className="border-l-2 border-ink pl-4">
+                      <p className="text-sm text-ink leading-relaxed">{ins.insight_text}</p>
+                      {ins.opportunity && (
+                        <p className="text-xs text-ink-muted mt-1">→ {ins.opportunity}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {interviewAnalysis.strategic_directions.length > 0 && (
+              <div className="bg-white rounded-2xl border border-stone-100 p-6">
+                <h4 className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-3">戦略示唆</h4>
+                <ul className="space-y-2">
+                  {interviewAnalysis.strategic_directions.map((d, i) => (
+                    <li key={i} className="flex gap-3 text-sm text-ink">
+                      <span className="text-ink-faint">—</span>{d}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </motion.section>
+      )}
+
       {/* Barrier Analysis */}
       {barriers && (
         <motion.section {...fadeUp(0.0)}>
-          <SectionLabel index="01" title="障壁分析" subtitle="使わない理由30項目と因果構造" />
+          <SectionLabel index="02" title="障壁分析" subtitle="使わない理由30項目と因果構造" />
           <div className="mt-10 space-y-8">
             <div className="grid grid-cols-3 gap-6">
               {[

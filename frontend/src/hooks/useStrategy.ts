@@ -11,11 +11,13 @@ import {
   CopyOutput,
   AdPlanResult,
   Hosoda3DResult,
+  DeskResearchResult,
+  InterviewAnalysisResult,
   StrategyResult,
   StreamUpdate,
 } from "@/lib/api";
 
-type Step = "idle" | "uploading" | "barriers" | "who_what" | "bigidea" | "copy" | "complete" | "error";
+type Step = "idle" | "uploading" | "desk_research" | "barriers" | "who_what" | "bigidea" | "copy" | "complete" | "error";
 
 interface StrategyState {
   // State
@@ -25,6 +27,8 @@ interface StrategyState {
   brief: BriefInput | null;
   files: File[];
   hosoda3d: Hosoda3DResult | null;
+  deskResearch: DeskResearchResult | null;
+  interviewAnalysis: InterviewAnalysisResult | null;
   barriers: BarrierResult | null;
   who: WhoAnalysis | null;
   what: WhatAnalysis | null;
@@ -50,6 +54,8 @@ const initialState = {
   brief: null,
   files: [] as File[],
   hosoda3d: null as Hosoda3DResult | null,
+  deskResearch: null as DeskResearchResult | null,
+  interviewAnalysis: null as InterviewAnalysisResult | null,
   barriers: null,
   who: null,
   what: null,
@@ -79,6 +85,22 @@ function makeStreamHandler(
     }
 
     switch (update.step) {
+      case "desk_research":
+        if (update.status === "running") {
+          set({ step: "desk_research", statusMessage: "デスクリサーチ（市場・競合分析）中..." });
+        } else if (update.status === "complete" && update.data) {
+          set({ deskResearch: update.data as DeskResearchResult });
+        }
+        break;
+
+      case "interview_analysis":
+        if (update.status === "running") {
+          set({ statusMessage: "インタビュー・定性データ分析中..." });
+        } else if (update.status === "complete" && update.data) {
+          set({ interviewAnalysis: update.data as InterviewAnalysisResult });
+        }
+        break;
+
       case "hosoda_3d":
         if (update.status === "running") {
           set({ statusMessage: "細田式3D（別視点）分析中..." });
@@ -141,6 +163,8 @@ function makeStreamHandler(
             step: "complete",
             result,
             hosoda3d: result.hosoda_3d ?? null,
+            deskResearch: result.desk_research ?? null,
+            interviewAnalysis: result.interview_analysis ?? null,
             barriers: result.barriers,
             who: result.who,
             what: result.what,

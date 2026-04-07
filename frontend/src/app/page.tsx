@@ -232,7 +232,7 @@ export default function Home() {
               </h3>
               <p className="text-white/50 text-xs font-medium tracking-wide mb-4">WHO / WHAT / BIG IDEA / コピー / 広告企画</p>
               <p className="text-white/55 text-sm leading-relaxed">
-                障壁分析 → WHO/WHAT → BIG IDEA → コピーライティング → 広告企画6案まで、戦略の全工程を一気通貫で実行。細田式3Dモデルも同時並走。
+                デスクリサーチ → インタビュー分析 → 障壁分析 → WHO/WHAT → BIG IDEA → コピーライティング → 広告企画6案まで、全モジュールを一気通貫で実行。PDFをアップロードするほど分析精度が上がる。
               </p>
               <p className="text-white/35 text-xs mt-4 pt-4 border-t border-white/15">↑ 上のフォームから開始</p>
             </motion.div>

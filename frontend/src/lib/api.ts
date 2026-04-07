@@ -194,6 +194,8 @@ export interface StrategyResult {
   big_idea: BigIdea;
   copywriting: CopyOutput;
   ad_planning?: AdPlanResult;
+  desk_research?: DeskResearchResult;
+  interview_analysis?: InterviewAnalysisResult;
 }
 
 // ── Vol.5 企画評価 ──────────────────────────────────────────────
