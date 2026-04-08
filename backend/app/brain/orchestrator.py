@@ -113,7 +113,7 @@ class StrategyOrchestrator:
             brief.competitors,
             brief.additional_info,
         ]))
-        deep_dive_focus = brief.product_name or brief.brand_name or "購買障壁"
+        deep_dive_focus = brief.product_name or "購買障壁"
         return DeskResearchInput(
             category=category.strip(" /"),
             context=context[:3000],
@@ -184,7 +184,7 @@ class StrategyOrchestrator:
         if run_interview:
             interview_input = InterviewAnalysisInput(
                 transcript=brief.additional_info or "",
-                research_goal=f"{brief.product_name or brief.brand_name}の購買障壁・インサイト解明",
+                research_goal=f"{brief.product_name}の購買障壁・インサイト解明",
                 context=f"製品: {brief.product_name}\n概要: {brief.product_description or ''}",
             )
             desk_stage1, interview_result = await asyncio.gather(
@@ -258,7 +258,7 @@ class StrategyOrchestrator:
             yield {"step": "interview_analysis", "status": "running", "message": "インタビュー・定性データ分析中..."}
             interview_input = InterviewAnalysisInput(
                 transcript=brief.additional_info or "",
-                research_goal=f"{brief.product_name or brief.brand_name}の購買障壁・インサイト解明",
+                research_goal=f"{brief.product_name}の購買障壁・インサイト解明",
                 context=f"製品: {brief.product_name}\n概要: {brief.product_description or ''}",
             )
             step0_task = _asyncio.ensure_future(

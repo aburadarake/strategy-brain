@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BriefInput as BriefInputType } from "@/lib/api";
 import PolyhedronCanvas from "@/components/PolyhedronCanvas";
@@ -44,13 +44,19 @@ const STRATEGY_QUESTIONS = [
   {
     id: "constraints",
     label: "05 / 制約・NG",
-    question: "NGワード・必須メッセージ・薬事/業界規制など、制約があれば教えてください",
-    placeholder: "例：「治る」「完治」は使用不可、医薬品なので効能効果の範囲内のみ、など（任意）",
+    question: "NGワード・必須メッセージ・薬事/業界規制など、制約があれば教えてください（任意）",
+    placeholder: "例：「治る」「完治」は使用不可、医薬品なので効能効果の範囲内のみ、など",
     required: false,
   },
 ];
 
-type UIStep = "brief" | "questions";
+interface ChatMessage {
+  role: "assistant" | "user";
+  content: string;
+  questionIndex?: number;
+}
+
+type UIStep = "brief" | "chat";
 
 export default function BriefInput({ onSubmit, isLoading }: BriefInputProps) {
   const [uiStep, setUiStep] = useState<UIStep>("brief");
@@ -68,18 +74,102 @@ export default function BriefInput({ onSubmit, isLoading }: BriefInputProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [currentInput, setCurrentInput] = useState("");
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [chatDone, setChatDone] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatMessages]);
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
     if (!brief.product_name) return;
-    setUiStep("questions");
+    // Initialize chat with first question
+    setChatMessages([
+      {
+        role: "assistant",
+        content: STRATEGY_QUESTIONS[0].question,
+        questionIndex: 0,
+      },
+    ]);
+    setCurrentQuestionIndex(0);
+    setUiStep("chat");
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleChatSubmit = () => {
+    const trimmed = currentInput.trim();
+    const q = STRATEGY_QUESTIONS[currentQuestionIndex];
 
-    // 回答をブリーフに統合
+    // Required check
+    if (!trimmed && q.required) return;
+
+    // Add user message
+    const newMessages: ChatMessage[] = [
+      ...chatMessages,
+      { role: "user", content: trimmed || "（スキップ）" },
+    ];
+
+    // Save answer
+    if (trimmed) {
+      setAnswers((prev) => ({ ...prev, [q.id]: trimmed }));
+    }
+
+    setCurrentInput("");
+
+    const nextIndex = currentQuestionIndex + 1;
+
+    if (nextIndex < STRATEGY_QUESTIONS.length) {
+      // Add next question after a brief delay
+      setTimeout(() => {
+        setChatMessages([
+          ...newMessages,
+          {
+            role: "assistant",
+            content: STRATEGY_QUESTIONS[nextIndex].question,
+            questionIndex: nextIndex,
+          },
+        ]);
+        setCurrentQuestionIndex(nextIndex);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }, 300);
+    } else {
+      // All done
+      setTimeout(() => {
+        setChatMessages([
+          ...newMessages,
+          {
+            role: "assistant",
+            content: `ありがとうございます。${brief.product_name}の戦略分析を開始します。`,
+          },
+        ]);
+        setChatDone(true);
+      }, 300);
+    }
+
+    setChatMessages(newMessages);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleChatSubmit();
+    }
+  };
+
+  const handleSubmit = () => {
     const qaContext = STRATEGY_QUESTIONS
       .filter((q) => answers[q.id]?.trim())
       .map((q) => `【${q.label}】${q.question}\n→ ${answers[q.id].trim()}`)
@@ -131,10 +221,9 @@ export default function BriefInput({ onSubmit, isLoading }: BriefInputProps) {
   };
 
   const canNext = !!brief.product_name && !isLoading;
-  const requiredAnswered = STRATEGY_QUESTIONS
-    .filter((q) => q.required)
-    .every((q) => answers[q.id]?.trim());
-  const canSubmit = requiredAnswered && !isLoading;
+
+  const currentQ = STRATEGY_QUESTIONS[currentQuestionIndex];
+  const canSend = !chatDone && (currentInput.trim() || !currentQ?.required);
 
   return (
     <section className="min-h-screen flex flex-col items-center justify-center px-6 py-24">
@@ -305,106 +394,189 @@ export default function BriefInput({ onSubmit, isLoading }: BriefInputProps) {
           </motion.form>
         )}
 
-        {/* ── STEP 2: 戦略深掘り質問 ── */}
-        {uiStep === "questions" && (
-          <motion.form
-            key="questions"
+        {/* ── STEP 2: チャット形式 戦略深掘り ── */}
+        {uiStep === "chat" && (
+          <motion.div
+            key="chat"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            onSubmit={handleSubmit}
-            className="w-full max-w-xl"
+            className="w-full max-w-xl flex flex-col"
           >
             {/* Header */}
-            <div className="mb-10">
+            <div className="mb-6 flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setUiStep("brief")}
-                className="text-white/35 hover:text-white/60 text-xs tracking-widest uppercase flex items-center gap-1.5 mb-4 transition-colors"
+                onClick={() => { setUiStep("brief"); setChatMessages([]); setChatDone(false); setCurrentQuestionIndex(0); }}
+                className="text-white/35 hover:text-white/60 transition-colors"
               >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                戻る
               </button>
-              <p className="text-white/40 text-xs tracking-[0.2em] uppercase mb-2">
-                {brief.product_name} の戦略深掘り
-              </p>
-              <h2
-                className="font-bold text-white"
-                style={{ fontSize: "clamp(1.6rem, 3.5vw, 2.4rem)", letterSpacing: "-0.03em", lineHeight: 1.1 }}
-              >
-                5つの問いに答えてください
-              </h2>
-              <p className="text-white/40 text-sm mt-2">
-                回答が詳細なほど、アウトプットの解像度が上がります
-              </p>
+              <div>
+                <p className="text-white/40 text-xs tracking-[0.15em] uppercase">{brief.product_name}</p>
+                <p className="text-white/60 text-xs mt-0.5">
+                  {chatDone ? "準備完了" : `${currentQuestionIndex + 1} / ${STRATEGY_QUESTIONS.length}`}
+                </p>
+              </div>
             </div>
 
-            {/* Questions */}
-            <div className="space-y-8 mb-10">
-              {STRATEGY_QUESTIONS.map((q, i) => (
+            {/* Progress bar */}
+            <div className="h-px bg-white/10 rounded-full mb-6 overflow-hidden">
+              <motion.div
+                className="h-full bg-white/40 rounded-full"
+                animate={{ width: chatDone ? "100%" : `${((currentQuestionIndex) / STRATEGY_QUESTIONS.length) * 100}%` }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              />
+            </div>
+
+            {/* Chat messages */}
+            <div className="flex flex-col gap-4 mb-6 max-h-96 overflow-y-auto pr-1">
+              <AnimatePresence initial={false}>
+                {chatMessages.map((msg, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 12, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    {msg.role === "assistant" && (
+                      <div className="flex items-start gap-2.5 max-w-[85%]">
+                        {/* Avatar */}
+                        <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                        </div>
+                        <div
+                          className="px-4 py-3 rounded-2xl rounded-tl-sm text-sm text-white/90 leading-relaxed"
+                          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }}
+                        >
+                          {msg.questionIndex !== undefined && (
+                            <p className="text-white/35 text-xs font-bold tracking-widest mb-1.5">
+                              {STRATEGY_QUESTIONS[msg.questionIndex].label}
+                            </p>
+                          )}
+                          {msg.content}
+                        </div>
+                      </div>
+                    )}
+
+                    {msg.role === "user" && (
+                      <div
+                        className="px-4 py-3 rounded-2xl rounded-tr-sm text-sm text-white leading-relaxed max-w-[80%]"
+                        style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
+                      >
+                        {msg.content}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input area or Submit */}
+            <AnimatePresence mode="wait">
+              {!chatDone ? (
                 <motion.div
-                  key={q.id}
-                  initial={{ opacity: 0, y: 16 }}
+                  key="input"
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex gap-3 items-end"
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-white/35 text-xs font-bold tracking-widest">{q.label}</span>
-                    {!q.required && (
-                      <span className="text-white/25 text-xs">（任意）</span>
+                  <div
+                    className="flex-1 rounded-2xl overflow-hidden transition-all duration-200"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+                  >
+                    <textarea
+                      ref={inputRef}
+                      value={currentInput}
+                      onChange={(e) => setCurrentInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={currentQ?.placeholder ?? ""}
+                      rows={2}
+                      className="w-full bg-transparent text-white placeholder-white/25 px-4 py-3 outline-none resize-none text-sm leading-relaxed"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <motion.button
+                      type="button"
+                      onClick={handleChatSubmit}
+                      disabled={!canSend}
+                      whileHover={canSend ? { scale: 1.05 } : {}}
+                      whileTap={canSend ? { scale: 0.95 } : {}}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200"
+                      style={{
+                        background: canSend ? "white" : "rgba(255,255,255,0.08)",
+                        color: canSend ? "#0a0a0a" : "rgba(255,255,255,0.2)",
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </motion.button>
+                    {!currentQ?.required && (
+                      <button
+                        type="button"
+                        onClick={handleChatSubmit}
+                        className="w-10 h-8 rounded-lg text-white/25 hover:text-white/50 transition-colors text-xs"
+                        title="スキップ"
+                      >
+                        skip
+                      </button>
                     )}
                   </div>
-                  <p className="text-white text-sm font-medium mb-3" style={{ letterSpacing: "-0.01em" }}>
-                    {q.question}
-                  </p>
-                  <textarea
-                    placeholder={q.placeholder}
-                    rows={2}
-                    value={answers[q.id] ?? ""}
-                    onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                    className="w-full bg-white/[0.05] text-white placeholder-white/25 rounded-xl px-4 py-3 outline-none resize-none border border-white/10 focus:border-white/30 focus:bg-white/[0.07] transition-all text-sm leading-relaxed"
-                  />
                 </motion.div>
-              ))}
-            </div>
-
-            {/* Submit */}
-            <motion.button
-              type="submit"
-              disabled={!canSubmit}
-              whileHover={canSubmit ? { scale: 1.01 } : {}}
-              whileTap={canSubmit ? { scale: 0.99 } : {}}
-              className="w-full py-4 rounded-2xl font-semibold tracking-wide transition-all duration-300 text-sm"
-              style={{
-                background: canSubmit ? "white" : "rgba(255,255,255,0.06)",
-                color: canSubmit ? "#0a0a0a" : "rgba(255,255,255,0.15)",
-              }}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-3">
-                  <span className="flex gap-1">
-                    <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" style={{ animationDelay: "0ms" }} />
-                    <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" style={{ animationDelay: "150ms" }} />
-                    <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" style={{ animationDelay: "300ms" }} />
-                  </span>
-                  分析中...
-                </span>
               ) : (
-                files.length > 0
-                  ? `戦略分析を開始 — ${files.length}ファイル添付`
-                  : "戦略分析を開始"
+                <motion.div
+                  key="submit"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.3 }}
+                >
+                  <motion.button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isLoading ?? false}
+                    whileHover={!isLoading ? { scale: 1.01 } : {}}
+                    whileTap={!isLoading ? { scale: 0.99 } : {}}
+                    className="w-full py-4 rounded-2xl font-semibold tracking-wide transition-all duration-300 text-sm"
+                    style={{
+                      background: isLoading ? "rgba(255,255,255,0.06)" : "white",
+                      color: isLoading ? "rgba(255,255,255,0.15)" : "#0a0a0a",
+                    }}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center gap-3">
+                        <span className="flex gap-1">
+                          <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" style={{ animationDelay: "0ms" }} />
+                          <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" style={{ animationDelay: "150ms" }} />
+                          <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" style={{ animationDelay: "300ms" }} />
+                        </span>
+                        分析中...
+                      </span>
+                    ) : (
+                      files.length > 0
+                        ? `戦略分析を開始 — ${files.length}ファイル添付`
+                        : "戦略分析を開始"
+                    )}
+                  </motion.button>
+                </motion.div>
               )}
-            </motion.button>
+            </AnimatePresence>
 
-            {!canSubmit && (
-              <p className="text-white/25 text-xs text-center mt-3">
-                01〜04 の回答が必要です
+            {!chatDone && (
+              <p className="text-white/20 text-xs text-center mt-3">
+                Enter で送信 · Shift+Enter で改行{!currentQ?.required ? " · skip で飛ばす" : ""}
               </p>
             )}
-          </motion.form>
+          </motion.div>
         )}
 
       </AnimatePresence>
