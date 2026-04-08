@@ -261,12 +261,14 @@ export const useStrategyStore = create<StrategyState>((set) => ({
       });
     } catch (error) {
       console.error("[Strategy] Error:", error);
-      // makeStreamHandler 内でエラー状態は既にセット済み
+      // makeStreamHandler 内でエラー状態は既にセット済みの場合はスキップ
       if (!(error instanceof Error && error.message.includes("エラー"))) {
         set({
           isLoading: false,
           step: "error",
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: error instanceof Error
+            ? error.message
+            : (typeof error === "string" ? error : "Unknown error"),
           statusMessage: "エラーが発生しました",
         });
       }
